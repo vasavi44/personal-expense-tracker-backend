@@ -38,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = {ExpenseController.class, HealthController.class})
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)
 public class ExpenseControllerTest {
 
@@ -46,6 +47,15 @@ public class ExpenseControllerTest {
 
     @MockBean
     private ExpenseService expenseService;
+
+    @MockBean
+    private com.expensetracker.service.AuthService authService;
+
+    @MockBean
+    private com.expensetracker.service.JwtService jwtService;
+
+    @MockBean
+    private com.expensetracker.service.CustomUserDetailsService customUserDetailsService;
 
     private ObjectMapper objectMapper;
 

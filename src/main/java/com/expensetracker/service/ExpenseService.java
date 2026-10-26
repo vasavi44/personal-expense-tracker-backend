@@ -4,6 +4,7 @@ import com.expensetracker.dto.ExpenseRequest;
 import com.expensetracker.dto.ExpenseResponse;
 import com.expensetracker.dto.TotalResponse;
 import com.expensetracker.entity.Expense;
+import com.expensetracker.entity.User;
 import com.expensetracker.exception.ResourceNotFoundException;
 import com.expensetracker.repository.ExpenseRepository;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,105 @@ public class ExpenseService {
         this.expenseRepository = expenseRepository;
     }
 
+    // ==========================================
+    // USER-SCOPED METHODS (Strict Multi-Tenancy)
+    // ==========================================
+
+    @Transactional(readOnly = true)
+    public List<ExpenseResponse> getAllExpenses(User user) {
+        if (user == null) {
+            return getAllExpenses();
+        }
+        return expenseRepository.findAllByUserOrderByDateDescIdDesc(user)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public ExpenseResponse getExpenseById(Long id, User user) {
+        if (user == null) {
+            return getExpenseById(id);
+        }
+        Expense expense = expenseRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
+        return mapToResponse(expense);
+    }
+
+    public ExpenseResponse createExpense(ExpenseRequest request, User user) {
+        validateRequest(request);
+
+        Expense expense = new Expense();
+        expense.setTitle(request.getTitle().trim());
+        expense.setAmount(request.getAmount());
+        expense.setCategory(normalizeCategory(request.getCategory()));
+        expense.setDate(request.getDate());
+        expense.setUser(user);
+
+        Expense saved = expenseRepository.save(expense);
+        return mapToResponse(saved);
+    }
+
+    public ExpenseResponse updateExpense(Long id, ExpenseRequest request, User user) {
+        validateRequest(request);
+
+        Expense existing;
+        if (user != null) {
+            existing = expenseRepository.findByIdAndUser(id, user)
+                    .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
+        } else {
+            existing = expenseRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
+        }
+
+        existing.setTitle(request.getTitle().trim());
+        existing.setAmount(request.getAmount());
+        existing.setCategory(normalizeCategory(request.getCategory()));
+        existing.setDate(request.getDate());
+
+        Expense updated = expenseRepository.save(existing);
+        return mapToResponse(updated);
+    }
+
+    public void deleteExpense(Long id, User user) {
+        if (user != null) {
+            if (!expenseRepository.existsByIdAndUser(id, user)) {
+                throw new ResourceNotFoundException("Expense not found with id: " + id);
+            }
+            expenseRepository.deleteById(id);
+        } else {
+            deleteExpense(id);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public TotalResponse getTotalExpenses(User user) {
+        if (user == null) {
+            return getTotalExpenses();
+        }
+        BigDecimal total = expenseRepository.sumTotalAmountByUser(user);
+        long count = expenseRepository.countByUser(user);
+        return new TotalResponse(total != null ? total : BigDecimal.ZERO, count);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExpenseResponse> getExpensesByCategory(String category, User user) {
+        if (user == null) {
+            return getExpensesByCategory(category);
+        }
+        if (category == null || category.trim().isEmpty()) {
+            return getAllExpenses(user);
+        }
+        return expenseRepository.findByUserAndCategoryIgnoreCaseOrderByDateDescIdDesc(user, category.trim())
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    // ==========================================
+    // OVERLOADED METHODS (Backward Compatibility)
+    // ==========================================
+
     @Transactional(readOnly = true)
     public List<ExpenseResponse> getAllExpenses() {
         return expenseRepository.findAllByOrderByDateDescIdDesc()
@@ -44,31 +144,11 @@ public class ExpenseService {
     }
 
     public ExpenseResponse createExpense(ExpenseRequest request) {
-        validateRequest(request);
-
-        Expense expense = new Expense();
-        expense.setTitle(request.getTitle().trim());
-        expense.setAmount(request.getAmount());
-        expense.setCategory(normalizeCategory(request.getCategory()));
-        expense.setDate(request.getDate());
-
-        Expense saved = expenseRepository.save(expense);
-        return mapToResponse(saved);
+        return createExpense(request, null);
     }
 
     public ExpenseResponse updateExpense(Long id, ExpenseRequest request) {
-        validateRequest(request);
-
-        Expense existing = expenseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
-
-        existing.setTitle(request.getTitle().trim());
-        existing.setAmount(request.getAmount());
-        existing.setCategory(normalizeCategory(request.getCategory()));
-        existing.setDate(request.getDate());
-
-        Expense updated = expenseRepository.save(existing);
-        return mapToResponse(updated);
+        return updateExpense(id, request, null);
     }
 
     public void deleteExpense(Long id) {

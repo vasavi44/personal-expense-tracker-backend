@@ -41,6 +41,10 @@ public class Expense {
     @Column(name = "date", nullable = false)
     private LocalDate date;
 
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.JoinColumn(name = "user_id", nullable = true)
+    private User user;
+
     public Expense() {
     }
 
@@ -50,6 +54,15 @@ public class Expense {
         this.amount = amount;
         this.category = category;
         this.date = date;
+    }
+
+    public Expense(Long id, String title, BigDecimal amount, String category, LocalDate date, User user) {
+        this.id = id;
+        this.title = title;
+        this.amount = amount;
+        this.category = category;
+        this.date = date;
+        this.user = user;
     }
 
     public Long getId() {
@@ -90,6 +103,14 @@ public class Expense {
 
     public void setDate(LocalDate date) {
         this.date = date;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     @Override
