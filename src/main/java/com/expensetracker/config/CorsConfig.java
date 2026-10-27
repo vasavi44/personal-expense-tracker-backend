@@ -40,8 +40,11 @@ public class CorsConfig {
         if (!origins.contains("http://127.0.0.1:5173")) {
             origins.add("http://127.0.0.1:5173");
         }
+        if (!origins.contains("https://*.vercel.app")) {
+            origins.add("https://*.vercel.app");
+        }
 
-        config.setAllowedOrigins(origins);
+        config.setAllowedOriginPatterns(origins);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(Arrays.asList("Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"));
         config.setExposedHeaders(Arrays.asList("Content-Disposition"));
