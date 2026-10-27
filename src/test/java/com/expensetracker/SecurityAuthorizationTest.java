@@ -17,13 +17,20 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.expensetracker.dto.RegisterRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -41,6 +48,8 @@ public class SecurityAuthorizationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private User userA;
     private User userB;
@@ -67,6 +76,49 @@ public class SecurityAuthorizationTest {
     void testAnonymousHealthAllowed() throws Exception {
         mockMvc.perform(get("/api/health"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Anonymous users can register via POST /api/auth/register (returns 201 with JWT token)")
+    void testAnonymousRegistrationAllowed() throws Exception {
+        RegisterRequest request = new RegisterRequest("New User", "newuser@example.com", "securePassword123");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.token", notNullValue()))
+                .andExpect(jsonPath("$.email", is("newuser@example.com")))
+                .andExpect(jsonPath("$.name", is("New User")));
+
+        assertThat(userRepository.existsByEmail("newuser@example.com")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Registration rejects duplicate email with 400 Bad Request")
+    void testRegistrationDuplicateEmailRejection() throws Exception {
+        // userA is already in the database
+        RegisterRequest request = new RegisterRequest("User A Duplicate", "userA@example.com", "securePassword123");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.message", is("Email is already registered. Please login or use a different email.")));
+    }
+
+    @Test
+    @DisplayName("Registration rejects invalid payload with 400 Validation Error")
+    void testRegistrationValidationErrors() throws Exception {
+        RegisterRequest request = new RegisterRequest("", "invalid-email", "123");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.validationErrors", notNullValue()));
     }
 
     @Test
