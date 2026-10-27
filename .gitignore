@@ -1,0 +1,39 @@
+# ==============================================================================
+# Backend Git Ignore Rules (.gitignore)
+# ==============================================================================
+
+# Compiled class files and build directory
+target/
+*.class
+
+# Log files
+*.log
+logs/
+
+# Package files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Virtual machine crash logs
+hs_err_pid*
+replay_pid*
+
+# OS and Editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Environment secrets and local credentials
+.env
+.env.*
+*.local
+credentials.json
